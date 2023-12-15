@@ -70,10 +70,3 @@ This project consists of a Solidity smart contract named `CrowdFunding` for mana
 6. After the deadline, the manager can use the `makePayment` function to make a payment to the selected recipient.
 
 **Note:** Ensure that the manager does not have access to funds until participants vote and approve the request.
-
-## License
-
-This project is licensed under the terms of the GNU General Public License v3.0. See the [LICENSE](LICENSE) file for details.
-```
-
-Copy and paste this content into your README file.
