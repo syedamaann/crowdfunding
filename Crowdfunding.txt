@@ -1,0 +1,113 @@
+// SPDX-License-Identifier: GPL-3.0
+
+pragma solidity >=0.5.0 <=0.9.0;
+
+contract CrowdFunding {
+    mapping(address=>uint) public contributions;
+    uint public target;
+    uint public deadline;
+    address public manager;
+    uint public raisedVal;
+    uint public contributorsCount;
+    uint public minContr;
+// manager can not take ether from the contract until people vote and allow him to access the contract
+
+    constructor (uint _target,uint _deadline,uint min_contri) public {
+        target=_target;
+        deadline=block.timestamp+_deadline;
+        manager=msg.sender;
+        minContr=min_contri;
+    }
+  struct requestAccess {
+      string description; //desc abt why we are calculating money
+      address payable recipient; //address of recipient
+      uint value; //value required to be paid
+      uint grade;
+      bool completed;
+      uint votersCount;//No of participants who voted for the contract to happen
+      mapping(address=>bool)voter;
+    //   storage is laways used instead of memory whenever mapping is done inside a structure
+  }
+
+//   mapping the requests.(request by student1, student2, etc..etc)
+    mapping(uint=>requestAccess)public requests;
+    uint public numReq;
+
+
+    function getEther() payable public {
+        
+        require(block.timestamp<deadline,"Deadline passed-No further transaction");
+        require(msg.value>=minContr,"Amount paid is less than minimum amount required");
+
+        if(contributions[msg.sender]==0)
+        contributorsCount++;
+        contributions[msg.sender]=msg.value;
+        raisedVal+=msg.value;
+
+    }
+
+    function getBalance() public view returns(uint) {
+        return address(this).balance;
+    }
+
+    // we need to refund the amount contributed by participants if the amount to be raised is 
+    // not met before or on deadline
+
+    function requestRefund() public {
+     require(block.timestamp>deadline && target>raisedVal,"Refund request rejected");
+     require(contributions[msg.sender]!=0);
+     address payable user=payable(msg.sender);
+     user.transfer(contributions[msg.sender]);
+     contributions[msg.sender]=0;
+    }
+
+    modifier onlyManager() {
+        require(msg.sender==manager,"Only manager can call this function");
+        _;
+    }
+
+    function createRequest(string memory name, address payable recipient,uint val,uint grade) public onlyManager {
+       require(grade>7);
+       requestAccess storage newReq=requests[numReq];
+       numReq++;
+       newReq.description=name;
+       newReq.recipient=recipient;
+       newReq.value=val;
+       newReq.completed=false;
+       newReq.votersCount=0;
+    }
+
+    function random() public view returns(uint256) {
+        return uint(keccak256(abi.encodePacked(block.difficulty,block.timestamp,numReq)));
+    }
+// selecting a student from eligible student on lottery basis.
+   uint ind;
+    function selectReceiver() public {
+       uint r=random();
+       ind=r%numReq; 
+    }
+
+    
+    function showWinner() public view returns(uint) {
+        return ind;
+    }
+    
+    // now we have to do voting for a request
+    function voteRequest(uint reqNum) public {
+        require(contributions[msg.sender]!=0,"You must contribute to vote");
+        requestAccess storage thisReq=requests[reqNum];
+        require(thisReq.voter[msg.sender]==false,"Already Voted");
+        thisReq.voter[msg.sender]=true;
+        thisReq.votersCount++;
+    }
+
+    function makePaymet() public onlyManager {
+        require(raisedVal>target);
+        requestAccess storage thisReq=requests[ind];
+        require(thisReq.completed==false,"the request has already been completed");
+        require(thisReq.votersCount>contributorsCount/2,"Majority does not support your transaction");
+        thisReq.recipient.transfer(thisReq.value);
+        raisedVal-=thisReq.value;
+        thisReq.completed=true;
+    }
+}
